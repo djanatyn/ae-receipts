@@ -137,3 +137,37 @@ pReceipt = do
       $ many (numberChar <|> char '*')
   _ <- takeRest
   return $ Receipt {..}
+
+-- * Discounts
+
+data Purchase
+  = Purchase
+      { purchaseName :: Text,
+        purchaseQuantity :: Int,
+        purchaseID :: Text,
+        purcahseDiscount :: Maybe [Discount]
+      }
+
+data DiscountType = DealDiscount | ItemDiscount deriving (Show)
+
+data Discount
+  = Discount
+      { discountAmount :: Text,
+        discountType :: DiscountType,
+        discountText :: Text
+      }
+
+-- | Parse `Purchase` with optional `Discount`s applied.
+pPurchase :: Parser Text
+pPurchase = dbg "purchase" . try $ do
+  undefined
+
+-- | Parse a `Discount`.
+pDiscount :: Parser DiscountType
+pDiscount = dbg "discount" . try $ do
+  discountType <-
+    choice
+      [ ItemDiscount <$ string "Item Discount ",
+        DealDiscount <$ string "Deal Discount Amt."
+      ]
+  return discountType
