@@ -1,3 +1,5 @@
+{-# LANGUAGE RecordWildCards #-}
+
 module Data.Receipt.Parsers
   ( -- * Receipt Sections
     pContactInfo,
@@ -24,15 +26,6 @@ import Text.Megaparsec.Debug (dbg)
 import Prelude hiding (replicate)
 
 -- | When separating tokens, skip leftover space characters.
--- @
--- >>> parseTest (lexeme pAddressLine >> lexeme pPhoneNumber) $ pack "SOUTH HILLS VILLAGE\n   123-456-7890"
--- addressLine> IN: "SOUTH HILLS VILLAGE<newline>   123-456- <…>
--- addressLine> MATCH (COK): "SOUTH HILLS VILLAGE<newline> "
--- addressLine> VALUE: "SOUTH HILLS VILLAGE"
--- phoneNumber> IN: "123-456-7890"
--- phoneNumber> MATCH (COK): "123-456-7890"
--- phoneNumber> VALUE: "123-456-7890"
--- "123-456-7890"
 lexeme :: Parser a -> Parser a
 lexeme = L.lexeme (skipMany spaceChar)
 
@@ -40,6 +33,7 @@ lexeme = L.lexeme (skipMany spaceChar)
 -- @
 -- >>> parseTest (rLabel "Store: " (many numberChar)) "Store: 00723"
 -- "00723"
+-- @
 rLabel :: Text -> Parser a -> Parser a
 rLabel prefix parser = string prefix >> parser
 
@@ -54,6 +48,7 @@ pSeparator = string $ replicate 42 "_"
 -- phoneNumber> MATCH (COK): "123-456-7890"
 -- phoneNumber> VALUE: "123-456-7890"
 -- "123-456-7890"
+-- @
 pPhoneNumber :: Parser Phone
 pPhoneNumber = dbg "phoneNumber" . try $ do
   areaCode <- count 3 digitChar
