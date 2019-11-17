@@ -1,3 +1,5 @@
+{-# LANGUAGE GADTSyntax #-}
+{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Data.Receipt.Parsers
@@ -148,14 +150,18 @@ data Purchase
         purcahseDiscount :: Maybe [Discount]
       }
 
-data DiscountType = DealDiscount | ItemDiscount deriving (Show)
+data DiscountType :: * where
+  DealDiscount :: DiscountType
+  EmployeeDiscount :: DiscountType
+  deriving (Show)
 
 data Discount
   = Discount
-      { discountAmount :: Text,
-        discountType :: DiscountType,
+      { discountType :: DiscountType,
+        discountAmount :: Text,
         discountText :: Text
       }
+  deriving (Show)
 
 -- | Parse `Purchase` with optional `Discount`s applied.
 pPurchase :: Parser Text
@@ -163,11 +169,40 @@ pPurchase = dbg "purchase" . try $ do
   undefined
 
 -- | Parse a `Discount`.
-pDiscount :: Parser DiscountType
+pDiscount :: Parser Discount
 pDiscount = dbg "discount" . try $ do
   discountType <-
     choice
-      [ ItemDiscount <$ string "Item Discount ",
+      [ EmployeeDiscount <$ string "Item Discount ",
         DealDiscount <$ string "Deal Discount Amt."
       ]
-  return discountType
+  case discountType of
+    EmployeeDiscount -> do
+      discountText <- lexeme pPercent
+      discountAmount <- lexeme pAmount
+      _ <- lexeme $ string "Employee Discount"
+      return Discount {..}
+    DealDiscount -> do
+      discountAmount <- lexeme pAmount
+      discountText <- lexeme pDealText
+      return Discount {..}
+  where
+    pDealText :: Parser Text
+    pDealText =
+      pack
+        <$> manyTill
+          (alphaNumChar <|> char '.' <|> char '%')
+          (count 2 spaceChar)
+    pPercent :: Parser Text
+    pPercent =
+      pack
+        <$> manyTill
+          (numberChar <|> char '.' <|> char '%')
+          spaceChar
+    pAmount :: Parser Text
+    pAmount =
+      pack
+        <$> between
+          (char '(')
+          (char ')')
+          (many (numberChar <|> char '.'))
