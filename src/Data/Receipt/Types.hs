@@ -1,3 +1,6 @@
+{-# LANGUAGE GADTSyntax #-}
+{-# LANGUAGE KindSignatures #-}
+
 module Data.Receipt.Types
   ( -- * Parser
     Parser,
@@ -10,6 +13,11 @@ module Data.Receipt.Types
 
     -- * Transaction Header
     Transaction (..),
+
+    -- * Purchases
+    DiscountType (..),
+    Discount (..),
+    Purchase (..),
 
     -- * Receipt
     Receipt (..),
@@ -48,9 +56,34 @@ data Transaction
       }
   deriving (Show)
 
+data Purchase
+  = Purchase
+      { purchaseName :: Text,
+        purchaseSalePrice :: Text,
+        purchaseID :: Text,
+        purchaseQuantity :: Text,
+        purchasePrice :: Text,
+        purchaseDiscount :: Maybe [Discount]
+      }
+  deriving (Show)
+
+data DiscountType :: * where
+  DealDiscount :: DiscountType
+  EmployeeDiscount :: DiscountType
+  deriving (Show)
+
+data Discount
+  = Discount
+      { discountType :: DiscountType,
+        discountAmount :: Text,
+        discountText :: Text
+      }
+  deriving (Show)
+
 data Receipt
   = Receipt
       { receiptContact :: ContactInfo,
-        receiptTransaction :: Transaction
+        receiptTransaction :: Transaction,
+        receiptPurchases :: [Purchase]
       }
   deriving (Show)

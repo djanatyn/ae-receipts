@@ -1,5 +1,3 @@
-{-# LANGUAGE GADTSyntax #-}
-{-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Data.Receipt.Parsers
@@ -15,12 +13,15 @@ where
 import Data.Receipt.Types
   ( AddressLine (..),
     ContactInfo (..),
+    Discount (..),
+    DiscountType (..),
     Parser,
     Phone (..),
+    Purchase (..),
     Receipt (..),
     Transaction (..),
   )
-import Data.Text (Text, append, pack, replicate)
+import Data.Text (Text, append, pack, replicate, strip)
 import Text.Megaparsec
 import Text.Megaparsec.Char
 import qualified Text.Megaparsec.Char.Lexer as L
@@ -137,44 +138,31 @@ pReceipt = do
     lexeme
       $ rLabel "Employee Number: "
       $ many (numberChar <|> char '*')
+  receiptPurchases <- some pPurchase
   _ <- takeRest
   return $ Receipt {..}
 
 -- * Discounts
 
-data Purchase
-  = Purchase
-      { purchaseName :: Text,
-        purchaseQuantity :: Int,
-        purchaseID :: Text,
-        purcahseDiscount :: Maybe [Discount]
-      }
-
-data DiscountType :: * where
-  DealDiscount :: DiscountType
-  EmployeeDiscount :: DiscountType
-  deriving (Show)
-
-data Discount
-  = Discount
-      { discountType :: DiscountType,
-        discountAmount :: Text,
-        discountText :: Text
-      }
-  deriving (Show)
-
 -- | Parse `Purchase` with optional `Discount`s applied.
-pPurchase :: Parser Text
+pPurchase :: Parser Purchase
 pPurchase = dbg "purchase" . try $ do
-  undefined
+  purchaseName <- strip . pack <$> lexeme (count 24 asciiChar)
+  purchaseSalePrice <- pack <$> lexeme (someTill (numberChar <|> char '.') spaceChar)
+  _ <- lexeme letterChar
+  purchaseID <- pack <$> lexeme (someTill numberChar spaceChar)
+  purchaseQuantity <- pack <$> lexeme (someTill (numberChar <|> spaceChar) (char '@'))
+  purchasePrice <- strip . pack <$> lexeme (someTill (numberChar <|> char '.') (spaceChar <|> newline))
+  purchaseDiscount <- optional $ some (lexeme pDiscount)
+  return Purchase {..}
 
 -- | Parse a `Discount`.
 pDiscount :: Parser Discount
 pDiscount = dbg "discount" . try $ do
   discountType <-
     choice
-      [ EmployeeDiscount <$ string "Item Discount ",
-        DealDiscount <$ string "Deal Discount Amt."
+      [ EmployeeDiscount <$ lexeme (string "Item Discount "),
+        DealDiscount <$ lexeme (string "Deal Discount Amt.")
       ]
   case discountType of
     EmployeeDiscount -> do
@@ -183,16 +171,16 @@ pDiscount = dbg "discount" . try $ do
       _ <- lexeme $ string "Employee Discount"
       return Discount {..}
     DealDiscount -> do
-      discountAmount <- lexeme pAmount
-      discountText <- lexeme pDealText
+      discountAmount <- dbg "amount" $ lexeme pAmount
+      discountText <- dbg "dealtext" $ lexeme pDealText
       return Discount {..}
   where
     pDealText :: Parser Text
     pDealText =
-      pack
+      strip . pack
         <$> manyTill
-          (alphaNumChar <|> char '.' <|> char '%')
-          (count 2 spaceChar)
+          asciiChar
+          newline
     pPercent :: Parser Text
     pPercent =
       pack
